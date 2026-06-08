@@ -1,0 +1,65 @@
+services:
+  oracle-alertas:
+    build: ../oracle-alertas
+    container_name: oracle-alertas
+    restart: unless-stopped
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: OracleRoot123
+      APP_USER: ALERTAS_APP
+      APP_USER_PASSWORD: Alertas123
+    volumes:
+      - oracle-alertas-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+    networks:
+      - medialert-net
+
+  microservicio-alertas:
+    build: ../microservicio-alertas
+    container_name: microservicio-alertas
+    restart: unless-stopped
+    depends_on:
+      oracle-alertas:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@//oracle-alertas:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: ALERTAS_APP
+      SPRING_DATASOURCE_PASSWORD: Alertas123
+      JPA_DDL_AUTO: validate
+      JPA_SHOW_SQL: "true"
+    networks:
+      - medialert-net
+
+  bff-alertas:
+    build: ../bff-alertas
+    container_name: bff-alertas
+    restart: unless-stopped
+    depends_on:
+      - microservicio-alertas
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      ALERTAS_MICROSERVICE_URL: http://microservicio-alertas:8081/api/microservicio/alertas
+      GATEWAY_SECURITY_ENABLED: "false"
+      API_GATEWAY_HEADER_NAME: X-Api-Gateway-Secret
+      API_GATEWAY_SECRET: cambia-este-secreto-largo
+      ALLOWED_ORIGINS: http://localhost:4200
+    networks:
+      - medialert-net
+
+networks:
+  medialert-net:
+    driver: bridge
+
+volumes:
+  oracle-alertas-data:

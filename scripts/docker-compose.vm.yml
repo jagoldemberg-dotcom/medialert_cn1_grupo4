@@ -1,0 +1,60 @@
+services:
+  oracle-alertas:
+    # Oracle XE corre en Docker usando imagen publica estable.
+    # No se sube a DockerLab para evitar problemas con scripts initdb.
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-alertas
+    restart: unless-stopped
+    shm_size: "1g"
+    ports:
+      # Expuesto para pruebas con SQLPlus / SQL Developer.
+      # En una entrega real se puede cerrar y dejar solo red interna Docker.
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+      APP_USER: ${ORACLE_APP_USER}
+      APP_USER_PASSWORD: ${ORACLE_APP_PASSWORD}
+    volumes:
+      - oracle_alertas_data:/opt/oracle/oradata
+
+  microservicio-alertas:
+    image: ${DOCKERLAB_USER}/microservicio-alertas:${VERSION}
+    container_name: microservicio-alertas
+    restart: unless-stopped
+    depends_on:
+      - oracle-alertas
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@//oracle-alertas:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: ${ORACLE_APP_USER}
+      SPRING_DATASOURCE_PASSWORD: ${ORACLE_APP_PASSWORD}
+      # Se dejan ambas variables para compatibilidad: Spring Boot y application.properties.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JPA_DDL_AUTO: update
+      JPA_SHOW_SQL: "true"
+
+  bff-alertas:
+    image: ${DOCKERLAB_USER}/bff-alertas:${VERSION}
+    container_name: bff-alertas
+    restart: unless-stopped
+    depends_on:
+      - microservicio-alertas
+    ports:
+      # AWS API Gateway debe apuntar a http://100.50.215.247:8080
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      # URL interna Docker que usa el BFF para llamar al microservicio.
+      ALERTAS_MICROSERVICE_URL: http://microservicio-alertas:8081/api/microservicio/alertas
+      MICROSERVICIO_ALERTAS_URL: http://microservicio-alertas:8081
+      # Header interno que debe inyectar AWS API Gateway.
+      API_GATEWAY_SECRET: ${API_GATEWAY_SECRET}
+      API_GATEWAY_HEADER_NAME: X-Api-Gateway-Secret
+      GATEWAY_SECURITY_ENABLED: ${GATEWAY_SECURITY_ENABLED}
+      # Para demo se usa *, porque el frontend corre local en localhost:4200.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+
+volumes:
+  oracle_alertas_data:
