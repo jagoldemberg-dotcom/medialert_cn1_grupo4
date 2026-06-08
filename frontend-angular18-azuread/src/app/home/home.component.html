@@ -1,0 +1,143 @@
+<section class="hero">
+  <div>
+    <p class="eyebrow">Hospital Cloud Native</p>
+    <h1>Sistema de alertas médicas en tiempo real</h1>
+    <p>
+      Gestión de signos vitales de pacientes críticos con login Azure AD,
+      API Manager de AWS, BFF Spring Boot, microservicio Spring Boot y persistencia Oracle.
+    </p>
+  </div>
+  <div class="hero-card">
+    <span class="pulse"></span>
+    <strong>Monitoreo activo</strong>
+    <small>Frontend local conectado a APIs publicadas en AWS API Gateway.</small>
+  </div>
+</section>
+
+@if (!loginDisplay) {
+  <section class="panel center">
+    <h2>Debes iniciar sesión</h2>
+    <p>Usa el botón Ingresar del menú superior para autenticarte con Azure AD.</p>
+  </section>
+}
+
+@if (loginDisplay) {
+  <section class="grid">
+    <form class="panel form" [formGroup]="form" (ngSubmit)="crearAlerta()">
+      <h2>Nueva alerta vital</h2>
+
+      <label>
+        RUT paciente
+        <input formControlName="pacienteRut" placeholder="12.345.678-9" />
+      </label>
+      @if (form.controls.pacienteRut.touched && form.controls.pacienteRut.invalid) {
+        <small class="field-error">Ingresa un RUT con formato válido.</small>
+      }
+
+      <label>
+        Nombre paciente
+        <input formControlName="pacienteNombre" placeholder="Paciente crítico" />
+      </label>
+      @if (form.controls.pacienteNombre.touched && form.controls.pacienteNombre.invalid) {
+        <small class="field-error">El nombre debe tener mínimo 3 caracteres.</small>
+      }
+
+      <div class="two-cols">
+        <label>
+          Signo vital
+          <select formControlName="tipoSigno">
+            <option value="FRECUENCIA_CARDIACA">Frecuencia cardiaca</option>
+            <option value="SATURACION_OXIGENO">Saturación oxígeno</option>
+            <option value="PRESION_SISTOLICA">Presión sistólica</option>
+            <option value="TEMPERATURA">Temperatura</option>
+            <option value="GLICEMIA">Glicemia</option>
+          </select>
+        </label>
+        <label>
+          Unidad
+          <input formControlName="unidad" placeholder="lpm" />
+        </label>
+      </div>
+
+      <div class="three-cols">
+        <label>
+          Valor
+          <input type="number" formControlName="valor" />
+        </label>
+        <label>
+          Mínimo
+          <input type="number" formControlName="umbralMinimo" />
+        </label>
+        <label>
+          Máximo
+          <input type="number" formControlName="umbralMaximo" />
+        </label>
+      </div>
+
+      <label>
+        Observación
+        <textarea formControlName="observacion" rows="3" placeholder="Detalle clínico o sala"></textarea>
+      </label>
+
+      <button class="primary" type="submit" [disabled]="cargando || apiGatewayPendiente">Guardar alerta</button>
+    </form>
+
+    <section class="panel list-panel">
+      <div class="list-header">
+        <div>
+          <h2>Alertas registradas</h2>
+          <p>CRUD consumiendo el BFF mediante AWS API Gateway.</p>
+        </div>
+        <button class="secondary" type="button" (click)="cargarAlertas()" [disabled]="apiGatewayPendiente">Actualizar</button>
+      </div>
+
+      <div class="filters">
+        <select [value]="filtroEstado" (change)="actualizarFiltroEstado($event)">
+          <option value="">Todos los estados</option>
+          <option value="NUEVA">Nuevas</option>
+          <option value="ATENDIDA">Atendidas</option>
+          <option value="DESCARTADA">Descartadas</option>
+        </select>
+        <input [value]="filtroPacienteRut" (input)="actualizarFiltroRut($event)" placeholder="Filtrar por RUT" />
+        <button class="secondary" type="button" (click)="cargarAlertas()" [disabled]="apiGatewayPendiente">Filtrar</button>
+      </div>
+
+      @if (apiGatewayPendiente) {
+        <div class="warning">
+          Falta configurar la URL real de AWS API Gateway en <strong>environment.ts</strong>.
+          Reemplaza <strong>REEMPLAZAR_API_ID</strong> por la URL pública de tu API.
+        </div>
+      }
+      @if (mensaje) {
+        <div class="success">{{ mensaje }}</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
+      @if (cargando) {
+        <div class="loading">Cargando información...</div>
+      }
+
+      <div class="cards">
+        @for (alerta of alertas; track alerta.id) {
+          <article class="alert-card" [class.critical]="alerta.gravedad === 'CRITICA'" [class.high]="alerta.gravedad === 'ALTA'">
+            <div class="alert-top">
+              <strong>#{{ alerta.id }} - {{ alerta.pacienteNombre }}</strong>
+              <span>{{ alerta.estado }}</span>
+            </div>
+            <p>{{ alerta.pacienteRut }} | {{ alerta.tipoSigno }}: {{ alerta.valor }} {{ alerta.unidad }}</p>
+            <p>Rango esperado: {{ alerta.umbralMinimo }} - {{ alerta.umbralMaximo }} | Gravedad: {{ alerta.gravedad }}</p>
+            <small>{{ alerta.mensaje }}</small>
+            <div class="actions">
+              <button type="button" (click)="marcarAtendida(alerta)">Atendida</button>
+              <button type="button" (click)="descartar(alerta)">Descartar</button>
+              <button type="button" class="danger" (click)="eliminar(alerta)">Eliminar</button>
+            </div>
+          </article>
+        } @empty {
+          <div class="empty">No existen alertas registradas para el filtro seleccionado.</div>
+        }
+      </div>
+    </section>
+  </section>
+}

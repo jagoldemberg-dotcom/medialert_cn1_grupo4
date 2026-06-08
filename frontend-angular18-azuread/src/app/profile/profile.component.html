@@ -1,0 +1,11 @@
+<section class="profile-card">
+  <h1>Perfil autenticado</h1>
+  @if (account) {
+    <p><strong>Nombre:</strong> {{ account.name || 'Sin nombre informado' }}</p>
+    <p><strong>Usuario:</strong> {{ account.username }}</p>
+    <p><strong>Tenant:</strong> {{ account.tenantId }}</p>
+    <p><strong>Metodo:</strong> Microsoft Entra ID / Azure AD usando MSAL Angular.</p>
+  } @else {
+    <p>No se encontro una cuenta activa.</p>
+  }
+</section>

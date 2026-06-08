@@ -1,0 +1,27 @@
+<mat-toolbar class="topbar">
+  <a class="brand" routerLink="/">
+    <span class="brand-icon">+</span>
+    <span>{{ title }}</span>
+  </a>
+
+  <div class="toolbar-spacer"></div>
+
+  @if (loginDisplay) {
+    <a mat-button routerLink="/">Alertas</a>
+    <a mat-button routerLink="/profile">Perfil</a>
+    <button mat-raised-button class="logout-button" (click)="logout()">Cerrar sesion</button>
+  } @else {
+    <button mat-raised-button class="login-button" [matMenuTriggerFor]="loginMenu">Ingresar</button>
+  }
+
+  <mat-menu #loginMenu="matMenu">
+    <button mat-menu-item (click)="loginPopup()">Login con Popup</button>
+    <button mat-menu-item (click)="loginRedirect()">Login con Redirect</button>
+  </mat-menu>
+</mat-toolbar>
+
+<main class="container">
+  @if (!isIframe) {
+    <router-outlet></router-outlet>
+  }
+</main>

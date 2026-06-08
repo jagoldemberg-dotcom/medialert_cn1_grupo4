@@ -1,0 +1,44 @@
+.topbar {
+  background: #0f766e;
+  color: white;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+
+.brand {
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  color: #0f766e;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.login-button,
+.logout-button {
+  background: #ecfeff;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
