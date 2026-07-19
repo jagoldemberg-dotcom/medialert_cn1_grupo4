@@ -1,0 +1,1 @@
+package cl.duoc.medialert;import java.util.Map;import org.springframework.web.bind.annotation.*;@RestController @RequestMapping("/api/procesamiento") public class ProcesamientoController{private final ProcesamientoService s;public ProcesamientoController(ProcesamientoService s){this.s=s;}@GetMapping("/estado") public Map<String,Object> estado(){return s.estado();}}

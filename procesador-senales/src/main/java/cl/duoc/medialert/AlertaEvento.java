@@ -1,0 +1,1 @@
+package cl.duoc.medialert;import java.time.Instant;public record AlertaEvento(Long pacienteId,String tipoAnomalia,String detalle,String severidad,Instant fechaHora){}

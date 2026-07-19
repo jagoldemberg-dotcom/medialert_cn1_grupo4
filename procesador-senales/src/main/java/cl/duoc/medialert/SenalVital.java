@@ -1,0 +1,1 @@
+package cl.duoc.medialert;import java.time.Instant;public record SenalVital(Long pacienteId,int frecuenciaCardiaca,int presionSistolica,int presionDiastolica,double temperatura,Instant fechaHora){}
