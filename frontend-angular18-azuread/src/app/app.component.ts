@@ -1,113 +1,91 @@
-import { Component, Inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterOutlet } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MSAL_GUARD_CONFIG, MsalBroadcastService, MsalGuardConfiguration, MsalModule, MsalService } from '@azure/msal-angular';
-import { AuthenticationResult, EventMessage, EventType, InteractionStatus, PopupRequest, RedirectRequest } from '@azure/msal-browser';
-import { Subject, filter, takeUntil } from 'rxjs';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subscription, forkJoin, interval, startWith, switchMap } from 'rxjs';
+import { ApiService, AlertItem, StreamStats } from './api.service';
+import { AuthService } from './auth.service';
 
 @Component({
-  selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
-  standalone: true,
-  imports: [CommonModule, MsalModule, RouterOutlet, RouterLink, MatToolbarModule, MatButtonModule, MatMenuModule],
+  selector: 'app-root', standalone: true, imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './app.component.html', styleUrl: './app.component.css'
 })
 export class AppComponent implements OnInit, OnDestroy {
-  title = 'MediAlert Cloud Native';
-  isIframe = false;
-  loginDisplay = false;
-  private readonly destroying$ = new Subject<void>();
+  public readonly auth = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+  private readonly api = inject(ApiService);
 
-  constructor(
-    @Inject(MSAL_GUARD_CONFIG) private readonly msalGuardConfig: MsalGuardConfiguration,
-    private readonly authService: MsalService,
-    private readonly msalBroadcastService: MsalBroadcastService,
-  ) {}
+  readonly loading = signal(false);
+  readonly message = signal('');
+  readonly error = signal('');
+  readonly alerts = signal<AlertItem[]>([]);
+  readonly events = signal<Record<string, unknown>[]>([]);
+  readonly stats = signal<StreamStats | null>(null);
+  private refreshSub?: Subscription;
 
-  ngOnInit(): void {
-    this.authService.handleRedirectObservable().subscribe();
-    this.isIframe = window !== window.parent && !window.opener;
-    this.setLoginDisplay();
+  readonly signalForm = this.fb.nonNullable.group({
+    pacienteRut: ['12.345.678-9', [Validators.required, Validators.pattern(/^\d{1,2}\.\d{3}\.\d{3}-[0-9Kk]$/)]],
+    pacienteNombre: ['Paciente Demo', [Validators.required, Validators.maxLength(120)]],
+    tipoSigno: ['FRECUENCIA_CARDIACA', Validators.required],
+    valor: [135, [Validators.required, Validators.min(0.1)]],
+    unidad: ['lpm', Validators.required],
+    umbralMinimo: [60, Validators.required],
+    umbralMaximo: [100, Validators.required],
+    observacion: ['Demostración de señal crítica', Validators.maxLength(500)]
+  });
+  readonly summaryForm = this.fb.nonNullable.group({
+    pacienteRut: ['12.345.678-9', [Validators.required, Validators.pattern(/^\d{1,2}\.\d{3}\.\d{3}-[0-9Kk]$/)]],
+    pacienteNombre: ['Paciente Demo', Validators.required],
+    periodoMinutos: [15, [Validators.required, Validators.min(1), Validators.max(1440)]],
+    cantidadMediciones: [15, [Validators.required, Validators.min(1)]],
+    promedioFrecuenciaCardiaca: [104, [Validators.required, Validators.min(20), Validators.max(250)]],
+    promedioSaturacionOxigeno: [92, [Validators.required, Validators.min(50), Validators.max(100)]],
+    observacion: ['Resumen para demostración', Validators.maxLength(500)]
+  });
 
-    this.authService.instance.enableAccountStorageEvents();
-    this.msalBroadcastService.msalSubject$
-      .pipe(
-        filter((msg: EventMessage) => msg.eventType === EventType.LOGIN_SUCCESS),
-        takeUntil(this.destroying$),
-      )
-      .subscribe((result: EventMessage) => {
-        const payload = result.payload as AuthenticationResult;
-        this.authService.instance.setActiveAccount(payload.account);
-        this.setLoginDisplay();
-      });
 
-    this.msalBroadcastService.msalSubject$
-      .pipe(
-        filter((msg: EventMessage) => msg.eventType === EventType.ACCOUNT_ADDED || msg.eventType === EventType.ACCOUNT_REMOVED),
-        takeUntil(this.destroying$),
-      )
-      .subscribe(() => {
-        if (this.authService.instance.getAllAccounts().length === 0) {
-          window.location.pathname = '/';
-        } else {
-          this.setLoginDisplay();
-        }
-      });
-
-    this.msalBroadcastService.inProgress$
-      .pipe(
-        filter((status: InteractionStatus) => status === InteractionStatus.None),
-        takeUntil(this.destroying$),
-      )
-      .subscribe(() => {
-        this.setLoginDisplay();
-        this.checkAndSetActiveAccount();
-      });
+  async ngOnInit(): Promise<void> {
+    await this.auth.initialize();
+    if (this.auth.account()) this.startRefresh();
   }
+  ngOnDestroy(): void { this.refreshSub?.unsubscribe(); }
 
-  loginRedirect(): void {
-    if (this.msalGuardConfig.authRequest) {
-      this.authService.loginRedirect({ ...this.msalGuardConfig.authRequest } as RedirectRequest);
-      return;
-    }
-    this.authService.loginRedirect();
+  async login(): Promise<void> { await this.auth.login(); this.startRefresh(); }
+  async logout(): Promise<void> { this.refreshSub?.unsubscribe(); await this.auth.logout(); }
+
+  sendSignal(): void {
+    this.clearStatus();
+    if (this.signalForm.invalid) { this.signalForm.markAllAsTouched(); this.error.set('Corrige los campos marcados.'); return; }
+    const v = this.signalForm.getRawValue();
+    if (v.umbralMinimo >= v.umbralMaximo) { this.error.set('El umbral mínimo debe ser menor que el máximo.'); return; }
+    this.loading.set(true);
+    this.api.sendSignal(v).subscribe({next:r=>{this.message.set(`${r.mensaje}. ID: ${r.mensajeId}`);this.loading.set(false);setTimeout(()=>this.refresh(),1500);},error:e=>this.fail(e)});
   }
-
-  loginPopup(): void {
-    if (this.msalGuardConfig.authRequest) {
-      this.authService.loginPopup({ ...this.msalGuardConfig.authRequest } as PopupRequest).subscribe((response: AuthenticationResult) => {
-        this.authService.instance.setActiveAccount(response.account);
-        this.setLoginDisplay();
-      });
-      return;
-    }
-    this.authService.loginPopup().subscribe((response: AuthenticationResult) => {
-      this.authService.instance.setActiveAccount(response.account);
-      this.setLoginDisplay();
+  sendSummary(): void {
+    this.clearStatus();
+    if (this.summaryForm.invalid) { this.summaryForm.markAllAsTouched(); this.error.set('Corrige los campos marcados.'); return; }
+    this.loading.set(true);
+    this.api.sendSummary(this.summaryForm.getRawValue()).subscribe({next:r=>{this.message.set(`${r.mensaje}. ID: ${r.mensajeId}`);this.loading.set(false);setTimeout(()=>this.refresh(),1500);},error:e=>this.fail(e)});
+  }
+  attend(a: AlertItem): void {
+    this.api.updateAlert(a.id,{estado:'ATENDIDA',detalle:a.detalle,severidad:a.severidad}).subscribe({next:()=>this.refresh(),error:e=>this.fail(e)});
+  }
+  refresh(): void {
+    forkJoin({alerts:this.api.alerts(),events:this.api.events(),stats:this.api.stats()}).subscribe({
+      next:r=>{this.alerts.set(r.alerts);this.events.set(r.events);this.stats.set(r.stats);}, error:e=>this.fail(e)
     });
   }
-
-  logout(): void {
-    this.authService.logoutRedirect();
-  }
-
-  ngOnDestroy(): void {
-    this.destroying$.next();
-    this.destroying$.complete();
-  }
-
-  private setLoginDisplay(): void {
-    this.loginDisplay = this.authService.instance.getAllAccounts().length > 0;
-  }
-
-  private checkAndSetActiveAccount(): void {
-    const activeAccount = this.authService.instance.getActiveAccount();
-    const accounts = this.authService.instance.getAllAccounts();
-    if (!activeAccount && accounts.length > 0) {
-      this.authService.instance.setActiveAccount(accounts[0]);
+  fieldInvalid(form: 'signal' | 'summary', name: string): boolean {
+    if (form === 'signal') {
+      const control = this.signalForm.get(name);
+      return !!control && control.invalid && (control.dirty || control.touched);
     }
+
+    const control = this.summaryForm.get(name);
+    return !!control && control.invalid && (control.dirty || control.touched);
   }
+  objectEntries(value: Record<string, number>|undefined): [string,number][] { return Object.entries(value ?? {}); }
+  severityCount(name: string): number { return this.stats()?.porSeveridad?.[name] ?? 0; }
+  private startRefresh(): void { this.refreshSub?.unsubscribe(); this.refreshSub=interval(5000).pipe(startWith(0),switchMap(()=>forkJoin({alerts:this.api.alerts(),events:this.api.events(),stats:this.api.stats()}))).subscribe({next:r=>{this.alerts.set(r.alerts);this.events.set(r.events);this.stats.set(r.stats);},error:e=>this.fail(e)}); }
+  private clearStatus(): void {this.message.set('');this.error.set('');}
+  private fail(e: any): void {this.loading.set(false);this.error.set(e?.error?.error ?? e?.message ?? 'No fue posible completar la solicitud.');}
 }

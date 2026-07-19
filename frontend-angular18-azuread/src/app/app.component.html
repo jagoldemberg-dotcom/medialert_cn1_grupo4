@@ -1,27 +1,83 @@
-<mat-toolbar class="topbar">
-  <a class="brand" routerLink="/">
-    <span class="brand-icon">+</span>
-    <span>{{ title }}</span>
-  </a>
+@if (!auth.ready()) {
+  <main class="center"><div class="loader"></div><p>Preparando autenticación…</p></main>
+} @else if (!auth.account()) {
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark">+</div>
+      <p class="eyebrow">MEDIALERT · GRUPO 4</p>
+      <h1>Alertas médicas en tiempo real</h1>
+      <p>Acceso protegido con Microsoft Entra ID. El frontend se ejecuta localmente y consume el backend de la VM mediante AWS API Gateway.</p>
+      <button class="primary" (click)="login()">Iniciar sesión con Microsoft</button>
+    </section>
+  </main>
+} @else {
+  <header>
+    <div class="brand"><span>+</span><div><b>MediAlert</b><small>Monitoreo cloud native</small></div></div>
+    <div class="account"><span>{{ auth.account()?.name || auth.account()?.username }}</span><button class="ghost" (click)="logout()">Cerrar sesión</button></div>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <div><p class="eyebrow">PANEL CLÍNICO · TIEMPO REAL</p><h1>Señales, colas y streaming</h1><p>Angular → API Gateway → BFF → RabbitMQ → Oracle → Kafka.</p></div>
+      <button class="ghost light" (click)="refresh()">Actualizar ahora</button>
+    </section>
+    @if (message()) { <div class="notice ok">{{ message() }}</div> }
+    @if (error()) { <div class="notice error">{{ error() }}</div> }
 
-  <div class="toolbar-spacer"></div>
+    <section class="metrics">
+      <article><span>Alertas registradas</span><strong>{{ alerts().length }}</strong></article>
+      <article><span>Eventos en streaming</span><strong>{{ stats()?.total ?? 0 }}</strong></article>
+      <article><span>Alertas críticas</span><strong>{{ severityCount('CRITICA') }}</strong></article>
+      <article><span>Estado BFF</span><strong class="up">UP</strong></article>
+    </section>
 
-  @if (loginDisplay) {
-    <a mat-button routerLink="/">Alertas</a>
-    <a mat-button routerLink="/profile">Perfil</a>
-    <button mat-raised-button class="logout-button" (click)="logout()">Cerrar sesion</button>
-  } @else {
-    <button mat-raised-button class="login-button" [matMenuTriggerFor]="loginMenu">Ingresar</button>
-  }
+    <section class="forms-grid">
+      <form class="card" [formGroup]="signalForm" (ngSubmit)="sendSignal()">
+        <div class="card-title"><span>01</span><div><h2>Enviar señal vital</h2><p>Primera función que publica en RabbitMQ.</p></div></div>
+        <div class="grid2">
+          <label>RUT<input formControlName="pacienteRut" [class.invalid]="fieldInvalid('signal','pacienteRut')"></label>
+          <label>Nombre<input formControlName="pacienteNombre" [class.invalid]="fieldInvalid('signal','pacienteNombre')"></label>
+          <label>Signo<select formControlName="tipoSigno"><option>FRECUENCIA_CARDIACA</option><option>PRESION_SISTOLICA</option><option>TEMPERATURA</option><option>SATURACION_OXIGENO</option></select></label>
+          <label>Unidad<input formControlName="unidad"></label>
+          <label>Valor<input type="number" formControlName="valor"></label>
+          <label>Umbral mínimo<input type="number" formControlName="umbralMinimo"></label>
+          <label>Umbral máximo<input type="number" formControlName="umbralMaximo"></label>
+          <label class="span2">Observación<textarea formControlName="observacion"></textarea></label>
+        </div>
+        <button class="primary" [disabled]="loading()">Publicar señal</button>
+      </form>
 
-  <mat-menu #loginMenu="matMenu">
-    <button mat-menu-item (click)="loginPopup()">Login con Popup</button>
-    <button mat-menu-item (click)="loginRedirect()">Login con Redirect</button>
-  </mat-menu>
-</mat-toolbar>
+      <form class="card" [formGroup]="summaryForm" (ngSubmit)="sendSummary()">
+        <div class="card-title"><span>02</span><div><h2>Enviar resumen vital</h2><p>Segunda función que publica en una cola independiente.</p></div></div>
+        <div class="grid2">
+          <label>RUT<input formControlName="pacienteRut" [class.invalid]="fieldInvalid('summary','pacienteRut')"></label>
+          <label>Nombre<input formControlName="pacienteNombre"></label>
+          <label>Período (min)<input type="number" formControlName="periodoMinutos"></label>
+          <label>Mediciones<input type="number" formControlName="cantidadMediciones"></label>
+          <label>Promedio FC<input type="number" formControlName="promedioFrecuenciaCardiaca"></label>
+          <label>Promedio SpO₂<input type="number" formControlName="promedioSaturacionOxigeno"></label>
+          <label class="span2">Observación<textarea formControlName="observacion"></textarea></label>
+        </div>
+        <button class="primary" [disabled]="loading()">Publicar resumen</button>
+      </form>
+    </section>
 
-<main class="container">
-  @if (!isIframe) {
-    <router-outlet></router-outlet>
-  }
-</main>
+    <section class="card table-card">
+      <div class="section-head"><div><p class="eyebrow">ORACLE</p><h2>Alertas persistidas</h2></div><span>{{ alerts().length }} registros</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Signo</th><th>Detalle</th><th>Gravedad</th><th>Estado</th><th></th></tr></thead><tbody>
+        @for (a of alerts(); track a.id) {<tr><td><b>{{a.pacienteNombre}}</b><small>{{a.pacienteRut}}</small></td><td>{{a.tipoSigno}}</td><td>{{a.detalle}}</td><td><span class="pill" [class.critical]="a.severidad==='CRITICA'">{{a.severidad}}</span></td><td>{{a.estado}}</td><td><button class="link" [disabled]="a.estado==='ATENDIDA'" (click)="attend(a)">Atender</button></td></tr>}
+        @empty {<tr><td colspan="6" class="empty">Aún no hay alertas.</td></tr>}
+      </tbody></table></div>
+    </section>
+
+    <section class="stream-grid">
+      <article class="card"><p class="eyebrow">KAFKA</p><h2>Eventos recientes</h2><div class="events">
+        @for (e of events(); track $index) {<div><span>{{e['tipoEvento']}}</span><b>{{e['pacienteNombre']}}</b><small>{{e['severidad']}} · {{e['fechaHora']}}</small></div>}
+        @empty {<p class="empty">Sin eventos todavía.</p>}
+      </div></article>
+      <article class="card"><p class="eyebrow">ESTADÍSTICAS</p><h2>Distribución</h2>
+        <h3>Por tipo</h3>@for (row of objectEntries(stats()?.porTipo); track row[0]) {<div class="bar-row"><span>{{row[0]}}</span><b>{{row[1]}}</b></div>}
+        <h3>Por gravedad</h3>@for (row of objectEntries(stats()?.porSeveridad); track row[0]) {<div class="bar-row"><span>{{row[0]}}</span><b>{{row[1]}}</b></div>}
+      </article>
+    </section>
+  </main>
+}

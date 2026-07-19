@@ -1,39 +1,28 @@
-# Frontend MediAlert - Angular 18 + Azure AD
+# MediAlert Frontend Angular 18 + Microsoft Entra ID
 
-Frontend local para el sistema de alertas medicas.
-
-Azure AD / Microsoft Entra ID se usa solo para iniciar sesion en Angular. El backend se consume mediante AWS API Gateway.
+El frontend se ejecuta localmente en `http://localhost:4200/` y consume solamente la URL publica del API Manager de AWS.
 
 ## Configuracion
 
-Editar `src/environments/environment.dev.ts`:
+El archivo utilizado es:
 
-```ts
-clientId: 'CLIENT_ID_DE_AZURE',
-authority: 'https://login.microsoftonline.com/TENANT_ID',
-loginRequest: {
-  scopes: ['openid', 'profile', 'email'],
-},
-bffBaseUrl: 'https://API_ID.execute-api.us-east-1.amazonaws.com/prod/api/bff'
-```
+`src/environments/environment.ts`
 
-## Ejecutar local
+Incluye el Client ID, Tenant/Authority, redirect URI local y la URL publica:
+
+`https://3lj8j5yzki.execute-api.us-east-1.amazonaws.com/prod/api/bff`
+
+No se debe guardar el secreto interno del API Gateway en Angular.
+
+## Ejecutar
 
 ```bash
 npm install
 npm start
 ```
 
-Abrir:
+## Validar compilacion
 
-```text
-http://localhost:4200
+```bash
+npm run build
 ```
-
-## Funcionalidades
-
-- Login con Microsoft Entra ID / Azure AD usando MSAL Angular.
-- Formulario de alerta medica con validaciones.
-- Listado de alertas desde el BFF mediante AWS API Gateway.
-- Cambiar estado a ATENDIDA o DESCARTADA.
-- Eliminar alerta.
