@@ -208,27 +208,6 @@ services:
     restart: unless-stopped
     networks:
     - medialert
-  oracle:
-    image: gvenzl/oracle-xe:21-slim
-    ports:
-    - 127.0.0.1:${ORACLE_HOST_PORT:-1522}:1521
-    environment:
-      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-Oracle2026Demo}
-      APP_USER: ${ORACLE_USER:-MEDIALERT}
-      APP_USER_PASSWORD: ${ORACLE_PASSWORD:-Medialert2026Demo}
-    volumes:
-    - oracle-data:/opt/oracle/oradata
-    healthcheck:
-      test:
-      - CMD
-      - healthcheck.sh
-      interval: 10s
-      timeout: 5s
-      retries: 60
-      start_period: 30s
-    restart: unless-stopped
-    networks:
-    - medialert
   productor-senales:
     image: ${DOCKERLAB_USER:-j4cobiyo}/productor-senales:${IMAGE_TAG:-3.0.1}
     depends_on:
@@ -256,8 +235,6 @@ services:
   servicio-alertas:
     image: ${DOCKERLAB_USER:-j4cobiyo}/servicio-alertas:${IMAGE_TAG:-3.0.1}
     depends_on:
-      oracle:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       kafka-init:
@@ -265,9 +242,9 @@ services:
     ports:
     - 127.0.0.1:8083:8083
     environment:
-      ORACLE_JDBC_URL: ${ORACLE_JDBC_URL:-jdbc:oracle:thin:@oracle:1521/XEPDB1}
-      ORACLE_USER: ${ORACLE_USER:-MEDIALERT}
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-Medialert2026Demo}
+      ORACLE_JDBC_URL: ${ORACLE_JDBC_URL:?Defina ORACLE_JDBC_URL de Oracle Cloud}
+      ORACLE_USER: ${ORACLE_USER:?Defina ORACLE_USER de Oracle Cloud}
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?Defina ORACLE_PASSWORD de Oracle Cloud}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-medialert}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-MedialertRabbit2026}
@@ -310,8 +287,6 @@ services:
     restart: unless-stopped
     networks:
     - medialert
-volumes:
-  oracle-data: {}
 networks:
   medialert:
     driver: bridge

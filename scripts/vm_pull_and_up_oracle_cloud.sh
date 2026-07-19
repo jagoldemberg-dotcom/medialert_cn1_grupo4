@@ -2,21 +2,19 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${1:-$SCRIPT_DIR/.env.vm}"
-COMPOSE_FILE="$SCRIPT_DIR/docker-compose.vm.yml"
+ENV_FILE="${1:-$SCRIPT_DIR/.env.vm.oracle-cloud}"
+COMPOSE_FILE="$SCRIPT_DIR/docker-compose.vm.oracle-cloud.yml"
 
 [[ -f "$ENV_FILE" ]] || {
-  echo "Falta $ENV_FILE. Copia .env.vm.example y completalo." >&2
+  echo "Falta $ENV_FILE. Copia .env.vm.oracle-cloud.example y completalo." >&2
   exit 1
 }
 
-# Elimina solamente el BFF antiguo de la primera experiencia si ocupa el puerto 8080.
 if docker ps --format '{{.Names}}' | grep -qx 'bff-alertas'; then
   echo "Se encontro el contenedor antiguo bff-alertas; se reemplazara por el BFF del Compose final."
   docker rm -f bff-alertas
 fi
 
-# Si otro proceso sigue usando el puerto, no lo elimina a ciegas.
 if command -v ss >/dev/null 2>&1 && ss -ltn | awk '{print $4}' | grep -Eq '(^|:)8080$'; then
   echo "El puerto 8080 sigue ocupado. Revisa: docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 8080" >&2
   exit 1
