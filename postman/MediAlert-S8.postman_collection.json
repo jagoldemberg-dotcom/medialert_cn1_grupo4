@@ -1,0 +1,91 @@
+{
+  "info": {
+    "name": "MediAlert S8",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "productor",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "procesador",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "alertas",
+      "value": "http://localhost:8083"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health productor",
+      "request": {
+        "method": "GET",
+        "url": "{{productor}}/actuator/health"
+      }
+    },
+    {
+      "name": "Publicar señal anómala",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pacienteId\": 1, \"frecuenciaCardiaca\": 145, \"presionSistolica\": 180, \"presionDiastolica\": 110, \"temperatura\": 39.2}"
+        },
+        "url": "{{productor}}/api/senales"
+      }
+    },
+    {
+      "name": "Estado procesamiento",
+      "request": {
+        "method": "GET",
+        "url": "{{procesador}}/api/procesamiento/estado"
+      }
+    },
+    {
+      "name": "Listar alertas",
+      "request": {
+        "method": "GET",
+        "url": "{{alertas}}/api/alertas"
+      }
+    },
+    {
+      "name": "Obtener alerta",
+      "request": {
+        "method": "GET",
+        "url": "{{alertas}}/api/alertas/1"
+      }
+    },
+    {
+      "name": "Actualizar alerta",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pacienteId\": 1, \"tipoAnomalia\": \"SIGNOS_VITALES\", \"detalle\": \"Alerta revisada\", \"severidad\": \"ALTA\", \"fechaHora\": \"2026-07-10T05:00:00Z\", \"estado\": \"ATENDIDA\"}"
+        },
+        "url": "{{alertas}}/api/alertas/1"
+      }
+    },
+    {
+      "name": "Eliminar alerta",
+      "request": {
+        "method": "DELETE",
+        "url": "{{alertas}}/api/alertas/1"
+      }
+    }
+  ]
+}

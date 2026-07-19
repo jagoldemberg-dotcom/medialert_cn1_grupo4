@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "MediAlert EFT Grupo 4",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "api",
+      "value": "https://3lj8j5yzki.execute-api.us-east-1.amazonaws.com/prod/api/bff"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health BFF",
+      "request": {
+        "method": "GET",
+        "url": "{{api}}/health"
+      }
+    },
+    {
+      "name": "Encolar señal vital",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pacienteRut\": \"12.345.678-9\", \"pacienteNombre\": \"Paciente Demo\", \"tipoSigno\": \"FRECUENCIA_CARDIACA\", \"valor\": 135, \"unidad\": \"lpm\", \"umbralMinimo\": 60, \"umbralMaximo\": 100, \"observacion\": \"Postman\"}"
+        },
+        "url": "{{api}}/colas/senales"
+      }
+    },
+    {
+      "name": "Encolar resumen vital",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pacienteRut\": \"12.345.678-9\", \"pacienteNombre\": \"Paciente Demo\", \"periodoMinutos\": 15, \"cantidadMediciones\": 15, \"promedioFrecuenciaCardiaca\": 104, \"promedioSaturacionOxigeno\": 92, \"observacion\": \"Postman\"}"
+        },
+        "url": "{{api}}/colas/resumenes"
+      }
+    },
+    {
+      "name": "Listar alertas",
+      "request": {
+        "method": "GET",
+        "url": "{{api}}/alertas"
+      }
+    },
+    {
+      "name": "Listar resúmenes",
+      "request": {
+        "method": "GET",
+        "url": "{{api}}/resumenes"
+      }
+    },
+    {
+      "name": "Eventos streaming",
+      "request": {
+        "method": "GET",
+        "url": "{{api}}/streaming/eventos?limite=20"
+      }
+    },
+    {
+      "name": "Estadísticas streaming",
+      "request": {
+        "method": "GET",
+        "url": "{{api}}/streaming/estadisticas"
+      }
+    },
+    {
+      "name": "Atender alerta",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"estado\":\"ATENDIDA\",\"detalle\":\"Revisada desde Postman\",\"severidad\":\"ALTA\"}"
+        },
+        "url": "{{api}}/alertas/1"
+      }
+    }
+  ]
+}
