@@ -1,0 +1,37 @@
+server:
+  port: 8080
+  forward-headers-strategy: framework
+spring:
+  application:
+    name: bff-alertas
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:medialert}
+    password: ${RABBITMQ_PASSWORD:MedialertRabbit2026}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+medialert:
+  security:
+    mode: ${SECURITY_MODE:GATEWAY}
+    gateway-secret: ${API_GATEWAY_SECRET:CAMBIAR_POR_UN_VALOR_LARGO_Y_ALEATORIO}
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200}
+  services:
+    alertas-url: ${ALERTAS_SERVICE_URL:http://servicio-alertas:8083}
+    streaming-url: ${STREAMING_SERVICE_URL:http://streaming-alertas:8084}
+  rabbit:
+    exchange: medialert.exchange
+    signal-queue: cola.alertas.vitales
+    signal-dlq: cola.alertas.vitales.dlq
+    signal-routing-key: alertas.senales
+    summary-queue: cola.resumen.vitales
+    summary-dlq: cola.resumen.vitales.dlq
+    summary-routing-key: alertas.resumenes
